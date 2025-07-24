@@ -1,0 +1,14 @@
+FROM ubuntu:latest
+
+
+RUN apt-get update && \
+    apt-get install -y curl osm2pgsql postgresql-client postgis gdal-bin python3-gdal && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /data && \
+    curl -L https://download.geofabrik.de/asia/china/hong-kong-latest.osm.pbf -o /data/vector.osm.pbf
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

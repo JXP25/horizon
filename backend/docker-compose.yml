@@ -1,0 +1,72 @@
+services:
+  postgres:
+    container_name: postgres
+    restart: always
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: vector
+      POSTGRES_PASSWORD: lakshay
+      POSTGRES_DB: maps
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vector -d maps"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  osm_import:
+    container_name: osm_import
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data/coastline:/data/coastline:ro
+      - ./data/country:/data/country:ro
+      - ./data/states:/data/states:ro
+    environment:
+      PGHOST: postgres
+      PGUSER: vector
+      PGPASSWORD: lakshay
+      PGDATABASE: maps
+
+  backend:
+    container_name: API
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://vector:lakshay@postgres:5432/maps?sslmode=disable
+
+  cloudbeaver:
+    container_name: cloudbeaver
+    image: dbeaver/cloudbeaver:latest
+    restart: always
+    ports:
+      - "8080:8978"
+    depends_on:
+      - postgres
+    environment:
+      CB_SERVER_NAME: "Local CloudBeaver"
+      CB_ADMIN_NAME: "admin"
+      CB_ADMIN_PASSWORD: "admin"
+    volumes:
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
+
+volumes:
+  postgres_data:
+  cloudbeaver_data:

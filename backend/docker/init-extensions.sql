@@ -1,0 +1,4 @@
+-- init-extensions.sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS hstore;
+CREATE EXTENSION IF NOT EXISTS pgrouting;
