@@ -19,6 +19,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV NEXT_PUBLIC_GRAPHQL_URL=/graphql
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
