@@ -392,8 +392,8 @@ export default function MapView() {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        setUserLocation(new maplibregl.LngLat(-0.566591, 51.427433));
-        const geojson = transformUserLocation(-0.566591, 51.427433, accuracy);
+        setUserLocation(new maplibregl.LngLat(longitude, latitude));
+        const geojson = transformUserLocation(longitude, latitude, accuracy);
         const src = map.getSource(
           "localUserLocation"
         ) as maplibregl.GeoJSONSource;
