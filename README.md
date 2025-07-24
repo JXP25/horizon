@@ -35,7 +35,7 @@ docker-compose up --build
 ##  ⚡ Access At
 Frontend:
 ```bash
-localhost:3000
+localhost:3001
 ```
 GraphQL:
 ```bash
