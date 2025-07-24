@@ -78,9 +78,16 @@ async function handleGraphQLRequest(request) {
 
   if (navigator.onLine) {
     try {
-      return await fetch(request);
-    } catch (_) {
- 
+      const fetchOptions = {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        credentials: "include",
+        mode: "cors",
+      };
+      return await fetch(request.url, fetchOptions);
+    } catch (error) {
+      console.error("Service worker fetch error:", error);
     }
   }
 
