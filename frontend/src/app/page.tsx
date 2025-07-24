@@ -73,14 +73,19 @@ export default function Page() {
     };
   }, []);
 
-  const sectionClass = `relative 2xl:px-[4rem] 2xl:pb-[5rem]  xl:px-[3.5rem] xl:pb-[5rem]  md:px-[2.5rem] md:pb-[4rem] sm:pb-[3rem] sm:px-[2rem] pb-[2rem] px-[1rem] pt-[5rem] w-[100dvw] h-[100dvh] flex justify-center items-center`;
+  const sectionClass = `relative 2xl:px-[4rem] 2xl:pb-[5rem]  xl:px-[3.5rem] xl:pb-[5rem]  md:px-[2.5rem] md:pb-[4rem] sm:pb-[3rem] sm:px-[2rem] pb-[2rem] px-[1rem] pt-[5rem] w-full min-h-[100dvh] flex justify-center items-center`;
 
   return (
-    <div className=" flex flex-col w-full justify-center items-center overflow-y-clip ">
+    <div className="flex flex-col w-full justify-center items-center overflow-y-clip ">
       <Toaster position="top-center" />
       <Navbar />
 
-      <div id="main-container" data-scroll-container ref={scrollRef}>
+      <div
+        id="main-container"
+        data-scroll-container
+        ref={scrollRef}
+        className="overflow-y-auto w-full"
+      >
 
 
         <section className={`${sectionClass}`}>
