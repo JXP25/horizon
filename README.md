@@ -39,7 +39,7 @@ localhost:3001
 ```
 GraphQL:
 ```bash
-localhost:4000/graphql
+localhost:4001/graphql
 ```
 Cloudbeaver:
 ```bash

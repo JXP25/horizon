@@ -20,7 +20,7 @@ COPY . .
 RUN pnpm run build
 
 # Expose your API port
-EXPOSE 4000
+EXPOSE 4001
 
 # Run the server
 CMD ["node", "build/index.js"]
