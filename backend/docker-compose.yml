@@ -9,7 +9,7 @@ services:
       - "5433:5432"
     environment:
       POSTGRES_USER: vector
-      POSTGRES_PASSWORD: lakshay
+      POSTGRES_PASSWORD: jxp
       POSTGRES_DB: maps
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -34,7 +34,7 @@ services:
     environment:
       PGHOST: postgres
       PGUSER: vector
-      PGPASSWORD: lakshay
+      PGPASSWORD: jxp
       PGDATABASE: maps
 
   backend:
@@ -50,7 +50,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://vector:lakshay@postgres:5432/maps?sslmode=disable
+      - DATABASE_URL=postgresql://vector:jxp@postgres:5432/maps?sslmode=disable
 
   cloudbeaver:
     container_name: cloudbeaver
