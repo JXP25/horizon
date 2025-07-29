@@ -27,7 +27,7 @@ export default function RootLayout({
       >
         <ApolloWrapper>
           {children}
-          <ServiceWorkerRegister />
+          {/* <ServiceWorkerRegister /> */}
         </ApolloWrapper>
       </body>
     </html>
