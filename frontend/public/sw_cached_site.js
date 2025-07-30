@@ -28,32 +28,39 @@ function openFeatureDB() {
     const rq = indexedDB.open("horizon-offline-db", 1);
     rq.onsuccess = () => res(rq.result);
     rq.onerror = () => rej(rq.error);
-
   });
 }
-
 
 async function getAllFromStore(storeName) {
-  const db = await openFeatureDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(storeName, "readonly");
-    const store = tx.objectStore(storeName);
-    const rq = store.getAll();
-    rq.onsuccess = () => res(rq.result);
-    rq.onerror = () => rej(rq.error);
-  });
+  try {
+    const db = await openFeatureDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const rq = store.getAll();
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+  } catch (error) {
+    console.error(`Error getting data from store ${storeName}:`, error);
+    return [];
+  }
 }
 
-
 async function getIntersecting(storeName, vars) {
-  const all = await getAllFromStore(storeName);
-  return all.filter(
-    (r) =>
-      r.minLon <= vars.maxLon &&
-      r.maxLon >= vars.minLon &&
-      r.minLat <= vars.maxLat &&
-      r.maxLat >= vars.minLat
-  );
+  try {
+    const all = await getAllFromStore(storeName);
+    return all.filter(
+      (r) =>
+        r.minLon <= vars.maxLon &&
+        r.maxLon >= vars.minLon &&
+        r.minLat <= vars.maxLat &&
+        r.maxLat >= vars.minLat
+    );
+  } catch (error) {
+    console.error(`Error getting intersecting data from store ${storeName}:`, error);
+    return [];
+  }
 }
 
 function makeFC(features, vars) {
@@ -64,9 +71,7 @@ function makeFC(features, vars) {
   };
 }
 
-
 async function handleGraphQLRequest(request) {
-
   let body;
   try {
     body = await request.clone().json();
@@ -76,6 +81,7 @@ async function handleGraphQLRequest(request) {
   const op = body.operationName;
   const vars = body.variables || {};
 
+  // Try online first if available
   if (navigator.onLine) {
     try {
       const fetchOptions = {
@@ -85,70 +91,81 @@ async function handleGraphQLRequest(request) {
         credentials: "include",
         mode: "cors",
       };
-      return await fetch(request.url, fetchOptions);
+      const response = await fetch(request.url, fetchOptions);
+      if (response.ok) {
+        return response;
+      }
     } catch (error) {
       console.error("Service worker fetch error:", error);
     }
   }
 
-
+  // Fallback to offline data
   console.log(`SW fallback for ${op} via IndexedDB`);
 
-  let fc;
-  switch (op) {
-    case "statesBbox":
-      fc = makeFC(await getIntersecting("natural_earth_states", vars), vars);
-      return new Response(JSON.stringify({ data: { statesBbox: fc } }), {
-        headers: { "Content-Type": "application/json" },
-      });
+  try {
+    let fc;
+    switch (op) {
+      case "statesBbox":
+        fc = makeFC(await getIntersecting("natural_earth_states", vars), vars);
+        return new Response(JSON.stringify({ data: { statesBbox: fc } }), {
+          headers: { "Content-Type": "application/json" },
+        });
 
-    case "polygonsBbox":
-      fc = makeFC(await getIntersecting("horizon_polygons", vars), vars);
-      return new Response(JSON.stringify({ data: { polygonsBbox: fc } }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      case "polygonsBbox":
+        fc = makeFC(await getIntersecting("horizon_polygons", vars), vars);
+        return new Response(JSON.stringify({ data: { polygonsBbox: fc } }), {
+          headers: { "Content-Type": "application/json" },
+        });
 
-    case "naturalPolygonsBbox":
-      fc = makeFC(await getIntersecting("horizon_natural_polygons", vars), vars);
-      return new Response(
-        JSON.stringify({ data: { naturalPolygonsBbox: fc } }),
-        { headers: { "Content-Type": "application/json" } }
-      );
+      case "naturalPolygonsBbox":
+        fc = makeFC(await getIntersecting("horizon_natural_polygons", vars), vars);
+        return new Response(
+          JSON.stringify({ data: { naturalPolygonsBbox: fc } }),
+          { headers: { "Content-Type": "application/json" } }
+        );
 
-    case "roadsBbox":
-      fc = makeFC(await getIntersecting("horizon_road_network", vars), vars);
-      return new Response(JSON.stringify({ data: { roadsBbox: fc } }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    case "coastlines": 
-      fc = {
-        type: "FeatureCollection",
-        features: await getAllFromStore("natural_earth_coastline"),
-      };
-      return new Response(JSON.stringify({ data: { coastlines: fc } }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    case "countries":
-      fc = {
-        type: "FeatureCollection",
-        features: await getAllFromStore("natural_earth_country"),
-      };
-      console.log("SW: countries", fc);
-      return new Response(JSON.stringify({ data: { countries: fc } }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      case "roadsBbox":
+        fc = makeFC(await getIntersecting("horizon_road_network", vars), vars);
+        return new Response(JSON.stringify({ data: { roadsBbox: fc } }), {
+          headers: { "Content-Type": "application/json" },
+        });
 
-    default:
-     
-      return new Response(
-        JSON.stringify({ errors: [{ message: "Operation not cached" }] }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      case "coastlines": 
+        fc = {
+          type: "FeatureCollection",
+          features: await getAllFromStore("natural_earth_coastline"),
+        };
+        return new Response(JSON.stringify({ data: { coastlines: fc } }), {
+          headers: { "Content-Type": "application/json" },
+        });
+
+      case "countries":
+        fc = {
+          type: "FeatureCollection",
+          features: await getAllFromStore("natural_earth_country"),
+        };
+        console.log("SW: countries", fc);
+        return new Response(JSON.stringify({ data: { countries: fc } }), {
+          headers: { "Content-Type": "application/json" },
+        });
+
+      default:
+        return new Response(
+          JSON.stringify({ errors: [{ message: "Not available offline" }] }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+    }
+  } catch (error) {
+    console.error("Error handling GraphQL request:", error);
+    return new Response(
+      JSON.stringify({ errors: [{ message: "Internal server error" }] }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
 
-self.addEventListener('fetch',( event ) => {
-
+self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -157,19 +174,17 @@ self.addEventListener('fetch',( event ) => {
   } else {
     event.respondWith(
       fetch(event.request)
-      .then(res => {
+        .then(res => {
           const resClone = res.clone();
           caches
-          .open(cacheName)
-          .then(cache => {
-              cache.put(event.request,resClone);
-          });
+            .open(cacheName)
+            .then(cache => {
+              cache.put(event.request, resClone);
+            });
           return res;
-      }).catch(err => caches.match(event.request).then(res => res))
-  )
+        })
+        .catch(err => caches.match(event.request).then(res => res))
+    );
   }
-
- 
- 
-})
+});
 

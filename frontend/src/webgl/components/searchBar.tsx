@@ -320,7 +320,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ map }) => {
       >
         <input
           type="text"
-          placeholder="Search"
+          placeholder="Search (try 'Hong Kong')"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{
