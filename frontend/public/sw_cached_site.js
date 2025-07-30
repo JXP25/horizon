@@ -1,9 +1,10 @@
 "use strict";
 
-const cacheName = "v1-site";
+const cacheName = "v2-site";
 
 self.addEventListener("install", (e) => {
   console.log("Service Worker: Installed");
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
@@ -58,7 +59,10 @@ async function getIntersecting(storeName, vars) {
         r.maxLat >= vars.minLat
     );
   } catch (error) {
-    console.error(`Error getting intersecting data from store ${storeName}:`, error);
+    console.error(
+      `Error getting intersecting data from store ${storeName}:`,
+      error
+    );
     return [];
   }
 }
@@ -119,7 +123,10 @@ async function handleGraphQLRequest(request) {
         });
 
       case "naturalPolygonsBbox":
-        fc = makeFC(await getIntersecting("horizon_natural_polygons", vars), vars);
+        fc = makeFC(
+          await getIntersecting("horizon_natural_polygons", vars),
+          vars
+        );
         return new Response(
           JSON.stringify({ data: { naturalPolygonsBbox: fc } }),
           { headers: { "Content-Type": "application/json" } }
@@ -131,7 +138,7 @@ async function handleGraphQLRequest(request) {
           headers: { "Content-Type": "application/json" },
         });
 
-      case "coastlines": 
+      case "coastlines":
         fc = {
           type: "FeatureCollection",
           features: await getAllFromStore("natural_earth_coastline"),
@@ -165,7 +172,7 @@ async function handleGraphQLRequest(request) {
   }
 }
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -174,17 +181,14 @@ self.addEventListener('fetch', (event) => {
   } else {
     event.respondWith(
       fetch(event.request)
-        .then(res => {
+        .then((res) => {
           const resClone = res.clone();
-          caches
-            .open(cacheName)
-            .then(cache => {
-              cache.put(event.request, resClone);
-            });
+          caches.open(cacheName).then((cache) => {
+            cache.put(event.request, resClone);
+          });
           return res;
         })
-        .catch(err => caches.match(event.request).then(res => res))
+        .catch((err) => caches.match(event.request).then((res) => res))
     );
   }
 });
-
