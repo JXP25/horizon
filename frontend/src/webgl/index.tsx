@@ -17,8 +17,10 @@ import { GET_BASE_STATES } from "@/graphql/query/states";
 import {
   initializeMapSourcesAndLayers,
   updatePolygons,
+  updateNaturalPolygons,
   updateBaseStates,
   updateRoads,
+  resetBoundingBoxes,
 } from "./utils/mapUtils";
 import {
   transformCountryLabels,
@@ -31,12 +33,10 @@ import Image from "next/image";
 import Account from "./components/account";
 import InfoPopup from "./components/ui/infoPopup";
 
-
-
-
 export default function MapView() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
+  const lastCenterRef = useRef<{ lng: number; lat: number } | null>(null);
 
   const [
     fetchCoastlines,
@@ -107,7 +107,6 @@ export default function MapView() {
       dragRotate: false,
       pitchWithRotate: false,
     });
- 
 
     const size = 100;
     const pulsingDot = {
@@ -117,46 +116,49 @@ export default function MapView() {
       data: new Uint8Array(size * size * 4),
 
       onAdd() {
-      const canvas = document.createElement("canvas");
-      canvas.width = this.width;
-      canvas.height = this.height;
-      this.context = canvas.getContext("2d");
+        const canvas = document.createElement("canvas");
+        canvas.width = this.width;
+        canvas.height = this.height;
+        this.context = canvas.getContext("2d");
       },
 
       render() {
-      const duration = 1000;
-      const t = (performance.now() % duration) / duration;
+        const duration = 1000;
+        const t = (performance.now() % duration) / duration;
 
-      const radius = (size / 2) * 0.3;
-      const outerRadius = (size / 2) * 0.7 * t + radius;
-      const context = this.context;
-      if (!context) return false;
+        const radius = (size / 2) * 0.3;
+        const outerRadius = (size / 2) * 0.7 * t + radius;
+        const context = this.context;
+        if (!context) return false;
 
-      context.clearRect(0, 0, this.width, this.height);
-      context.beginPath();
-      context.arc(
-        this.width / 2,
-        this.height / 2,
-        outerRadius,
-        0,
-        Math.PI * 2
-      );
-      context.fillStyle = `rgba(200, 200, 255,${1 - t})`;
-      context.fill();
+        context.clearRect(0, 0, this.width, this.height);
+        context.beginPath();
+        context.arc(
+          this.width / 2,
+          this.height / 2,
+          outerRadius,
+          0,
+          Math.PI * 2
+        );
+        context.fillStyle = `rgba(200, 200, 255,${1 - t})`;
+        context.fill();
 
-      context.beginPath();
-      context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
-      context.fillStyle = "rgba(100, 100, 255, 1)";
-      context.strokeStyle = "white";
-      context.lineWidth = 2 + 4 * (1 - t);
-      context.fill();
-      context.stroke();
+        context.beginPath();
+        context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
+        context.fillStyle = "rgba(100, 100, 255, 1)";
+        context.strokeStyle = "white";
+        context.lineWidth = 2 + 4 * (1 - t);
+        context.fill();
+        context.stroke();
 
-      this.data = new Uint8Array(context.getImageData(0, 0, this.width, this.height).data.buffer as ArrayBuffer);
+        this.data = new Uint8Array(
+          context.getImageData(0, 0, this.width, this.height).data
+            .buffer as ArrayBuffer
+        );
 
-      mapInstance.triggerRepaint();
+        mapInstance.triggerRepaint();
 
-      return true;
+        return true;
       },
     };
 
@@ -175,7 +177,7 @@ export default function MapView() {
         console.log("baseCoastlineLayer is hidden");
       }
 
-      if (baseCountriesLayer ) {
+      if (baseCountriesLayer) {
         fetchCountries().catch((err: any) =>
           console.error("fetchCountries error:", err)
         );
@@ -191,6 +193,23 @@ export default function MapView() {
       const roadLayer = mapInstance.getLayer("roadLayer");
 
       const zoom = mapInstance.getZoom();
+      const center = mapInstance.getCenter();
+
+      // Check if we've moved to a completely new area (not just zoomed in)
+      if (lastCenterRef.current) {
+        const lastCenter = lastCenterRef.current;
+        // If we've moved more than 0.5 degrees in any direction, consider it a new area
+        const hasMovedSignificantly =
+          Math.abs(center.lng - lastCenter.lng) > 0.5 ||
+          Math.abs(center.lat - lastCenter.lat) > 0.5;
+
+        if (hasMovedSignificantly) {
+          resetBoundingBoxes();
+        }
+      }
+
+      // Update the last center reference
+      lastCenterRef.current = { lng: center.lng, lat: center.lat };
 
       if (baseStatesLayer && !baseStatesLoading) {
         updateBaseStates(mapInstance, fetchStates, zoom);
@@ -202,9 +221,10 @@ export default function MapView() {
       if (
         naturalPolygonsLayer &&
         naturalPolygonsLayer.minzoom <= zoom &&
-        zoom <= naturalPolygonsLayer.maxzoom && !naturalPolygonsLoading
+        zoom <= naturalPolygonsLayer.maxzoom &&
+        !naturalPolygonsLoading
       ) {
-        updatePolygons(mapInstance, fetchNaturalPolygons, 250);
+        updateNaturalPolygons(mapInstance, fetchNaturalPolygons, 250);
         console.log("naturalPolygonsLayer is visible");
       } else {
         console.log("naturalPolygonsLayer is hidden");
@@ -213,7 +233,8 @@ export default function MapView() {
       if (
         polygonsLayer &&
         polygonsLayer.minzoom <= zoom &&
-        zoom <= polygonsLayer.maxzoom && !polygonsLoading
+        zoom <= polygonsLayer.maxzoom &&
+        !polygonsLoading
       ) {
         updatePolygons(mapInstance, fetchPolygons, 3000);
         console.log("polygonsLayer is visible");
@@ -221,7 +242,12 @@ export default function MapView() {
         console.log("polygonsLayer is hidden");
       }
 
-      if (roadLayer && roadLayer.minzoom <= zoom && zoom <= roadLayer.maxzoom && !roadsLoading) {
+      if (
+        roadLayer &&
+        roadLayer.minzoom <= zoom &&
+        zoom <= roadLayer.maxzoom &&
+        !roadsLoading
+      ) {
         updateRoads(mapInstance, fetchRoads, zoom);
         console.log("roadLayer is visible");
       } else {
@@ -234,7 +260,6 @@ export default function MapView() {
 
   useEffect(() => {
     if (baseCoastlinesData && map) {
-    
       const source = map.getSource(
         "localBaseCoastlines"
       ) as maplibregl.GeoJSONSource;
@@ -248,7 +273,6 @@ export default function MapView() {
 
   useEffect(() => {
     if (baseCountriesData && map) {
-  
       const polygonSource = map.getSource(
         "localBaseCountries"
       ) as maplibregl.GeoJSONSource;
@@ -272,7 +296,6 @@ export default function MapView() {
 
   useEffect(() => {
     if (baseStatesData && map) {
-    
       const source = map.getSource(
         "localBaseStates"
       ) as maplibregl.GeoJSONSource;
@@ -296,7 +319,6 @@ export default function MapView() {
 
   useEffect(() => {
     if (polygonsData && map) {
-    
       const source = map.getSource(
         "localBasePolygons"
       ) as maplibregl.GeoJSONSource;
@@ -323,7 +345,6 @@ export default function MapView() {
 
   useEffect(() => {
     if (roadsData && map) {
-    
       const source = map.getSource("localRoads") as maplibregl.GeoJSONSource;
       if (source) {
         source.setData(roadsData.roadsBbox);
@@ -332,7 +353,6 @@ export default function MapView() {
       }
     }
   }, [roadsData, map]);
-
 
   useEffect(() => {
     if (polygonsError) {
@@ -412,8 +432,6 @@ export default function MapView() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [map]);
 
-
-
   return (
     <>
       <div ref={mapContainerRef} style={{ width: "100%", height: "100vh" }} />
@@ -421,7 +439,13 @@ export default function MapView() {
       {map && <Controls map={map} userLocation={userLocation} />}
       <div className="z-10 absolute  top-0 left-0 px-6 pt-6 flex gap-4 w-full items-start ">
         <div className="bg-white shadow-md flex items-center justify-center rounded-full min-w-10 min-h-10 transition-all hover:scale-110 duration-100">
-          <Image src={"/logo/icon.png"} alt="Logo" width={30} height={30} className=" saturate-150 brightness-75 " />
+          <Image
+            src={"/logo/icon.png"}
+            alt="Logo"
+            width={30}
+            height={30}
+            className=" saturate-150 brightness-75 "
+          />
         </div>
         {map && <SearchBar map={map} />}
         {map && <Amenities map={map} />}
