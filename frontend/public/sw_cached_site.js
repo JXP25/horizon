@@ -151,6 +151,12 @@ async function handleGraphQLRequest(request) {
           headers: { "Content-Type": "application/json" },
         });
 
+      case "GetAmenityInBbox":
+        // Return empty amenities array for offline fallback
+        return new Response(JSON.stringify({ data: { amenitiesInBbox: [] } }), {
+          headers: { "Content-Type": "application/json" },
+        });
+
       default:
         return new Response(JSON.stringify({ data: {} }), {
           headers: { "Content-Type": "application/json" },
