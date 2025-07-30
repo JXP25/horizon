@@ -88,19 +88,13 @@ async function handleGraphQLRequest(request) {
   // Try online first if available
   if (navigator.onLine) {
     try {
-      const fetchOptions = {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        credentials: "include",
-        mode: "cors",
-      };
-      const response = await fetch(request.url, fetchOptions);
+      const response = await fetch(request);
       if (response.ok) {
         return response;
       }
     } catch (error) {
-      console.error("Service worker fetch error:", error);
+      // Silently fall back to offline data - this is expected behavior
+      // console.error("Service worker fetch error:", error);
     }
   }
 
@@ -158,17 +152,15 @@ async function handleGraphQLRequest(request) {
         });
 
       default:
-        return new Response(
-          JSON.stringify({ errors: [{ message: "Not available offline" }] }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ data: {} }), {
+          headers: { "Content-Type": "application/json" },
+        });
     }
   } catch (error) {
     console.error("Error handling GraphQL request:", error);
-    return new Response(
-      JSON.stringify({ errors: [{ message: "Internal server error" }] }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ data: {} }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
@@ -179,16 +171,22 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname === "/graphql" && request.method === "POST") {
     event.respondWith(handleGraphQLRequest(request));
   } else {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          const resClone = res.clone();
-          caches.open(cacheName).then((cache) => {
-            cache.put(event.request, resClone);
-          });
-          return res;
-        })
-        .catch((err) => caches.match(event.request).then((res) => res))
-    );
+    // Only cache GET requests, not POST requests
+    if (request.method === "GET") {
+      event.respondWith(
+        fetch(event.request)
+          .then((res) => {
+            const resClone = res.clone();
+            caches.open(cacheName).then((cache) => {
+              cache.put(event.request, resClone);
+            });
+            return res;
+          })
+          .catch((err) => caches.match(event.request).then((res) => res))
+      );
+    } else {
+      // For non-GET requests, just fetch without caching
+      event.respondWith(fetch(event.request));
+    }
   }
 });
