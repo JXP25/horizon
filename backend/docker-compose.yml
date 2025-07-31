@@ -1,3 +1,4 @@
+name: horizon-backend
 services:
   postgres:
     container_name: horizon-postgres
