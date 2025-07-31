@@ -1,6 +1,6 @@
 services:
   postgres:
-    container_name: postgres
+    container_name: horizon-postgres
     restart: always
     build:
       context: ./docker
@@ -12,15 +12,17 @@ services:
       POSTGRES_PASSWORD: jxp
       POSTGRES_DB: maps
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - horizon_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vector -d maps"]
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      - horizon-network
 
   osm_import:
-    container_name: osm_import
+    container_name: horizon-osm-import
     build:
       context: ./docker
       dockerfile: Dockerfile.import
@@ -32,13 +34,15 @@ services:
       - ./data/country:/data/country:ro
       - ./data/states:/data/states:ro
     environment:
-      PGHOST: postgres
+      PGHOST: horizon-postgres
       PGUSER: vector
       PGPASSWORD: jxp
       PGDATABASE: maps
+    networks:
+      - horizon-network
 
   backend:
-    container_name: API
+    container_name: horizon-backend
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -50,10 +54,12 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://vector:jxp@postgres:5432/maps?sslmode=disable
+      - DATABASE_URL=postgresql://vector:jxp@horizon-postgres:5432/maps?sslmode=disable
+    networks:
+      - horizon-network
 
   cloudbeaver:
-    container_name: cloudbeaver
+    container_name: horizon-cloudbeaver
     image: dbeaver/cloudbeaver:latest
     restart: always
     ports:
@@ -66,8 +72,14 @@ services:
       CB_ADMIN_PASSWORD: "admin"
       SERVER_SERVLET_CONTEXT_PATH: "/cloudbeaver"
     volumes:
-      - cloudbeaver_data:/opt/cloudbeaver/workspace
+      - horizon_cloudbeaver_data:/opt/cloudbeaver/workspace
+    networks:
+      - horizon-network
+
+networks:
+  horizon-network:
+    driver: bridge
 
 volumes:
-  postgres_data:
-  cloudbeaver_data:
+  horizon_postgres_data:
+  horizon_cloudbeaver_data:
