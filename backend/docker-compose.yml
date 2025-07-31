@@ -1,6 +1,5 @@
-name: horizon-backend
 services:
-  postgres:
+  horizon-postgres:
     container_name: horizon-postgres
     restart: always
     build:
@@ -22,13 +21,13 @@ services:
     networks:
       - horizon-network
 
-  osm_import:
+  horizon-osm-import:
     container_name: horizon-osm-import
     build:
       context: ./docker
       dockerfile: Dockerfile.import
     depends_on:
-      postgres:
+      horizon-postgres:
         condition: service_healthy
     volumes:
       - ./data/coastline:/data/coastline:ro
@@ -42,13 +41,13 @@ services:
     networks:
       - horizon-network
 
-  backend:
+  horizon-backend:
     container_name: horizon-backend
     build:
       context: .
       dockerfile: docker/Dockerfile
     depends_on:
-      postgres:
+      horizon-postgres:
         condition: service_healthy
     ports:
       - "4001:4001"
@@ -59,16 +58,16 @@ services:
     networks:
       - horizon-network
 
-  cloudbeaver:
+  horizon-cloudbeaver:
     container_name: horizon-cloudbeaver
     image: dbeaver/cloudbeaver:latest
     restart: always
     ports:
       - "8080:8978"
     depends_on:
-      - postgres
+      - horizon-postgres
     environment:
-      CB_SERVER_NAME: "CloudBeaver"
+      CB_SERVER_NAME: "Horizon CloudBeaver"
       CB_ADMIN_NAME: "admin"
       CB_ADMIN_PASSWORD: "admin"
       SERVER_SERVLET_CONTEXT_PATH: "/cloudbeaver"
