@@ -43,6 +43,7 @@ services:
 
   horizon-backend:
     container_name: horizon-backend
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/Dockerfile
