@@ -281,11 +281,14 @@ const OfflineAreaDownloader: React.FC<OfflineAreaDownloaderProps> = ({
         horizon_road_network: roadsRes?.data?.roadsOffline?.features?.map(
           (feature: any) => feature?.properties?.id
         ),
-        horizon_natural_polygons: naturalPolygonsRes?.data?.naturalPolygonsBbox?.features?.map(
-          (feature: any) => feature?.properties?.id
-        ),
+        horizon_natural_polygons:
+          naturalPolygonsRes?.data?.naturalPolygonsBbox?.features?.map(
+            (feature: any) =>
+              Number(feature?.properties?.id) || feature?.properties?.id
+          ),
         horizon_polygons: polygonsRes?.data?.polygonsBbox?.features?.map(
-          (feature: any) => feature?.properties?.id
+          (feature: any) =>
+            Number(feature?.properties?.id) || feature?.properties?.id
         ),
       };
 
@@ -333,8 +336,7 @@ const OfflineAreaDownloader: React.FC<OfflineAreaDownloaderProps> = ({
           console.error("Error checking cache:", error);
           window.location.reload();
         }
-      } 
-
+      }
     } catch (err) {
       console.error("Error fetching/storing offline data:", err);
       toast.dismiss();
