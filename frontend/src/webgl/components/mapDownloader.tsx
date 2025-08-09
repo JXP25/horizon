@@ -18,7 +18,6 @@ import { clear } from "console";
 import HighlightAltIcon from "@mui/icons-material/HighlightAlt";
 import { getDB } from "@/lib/db";
 
-
 interface OfflineAreaDownloaderProps {
   map: Map | null;
 }
@@ -269,8 +268,6 @@ const OfflineAreaDownloader: React.FC<OfflineAreaDownloaderProps> = ({
     toast.loading("Downloading data for offline...");
 
     try {
-
-
       const naturalPolygonsRes = await fetchNaturalPolygons({
         variables: { minLon, minLat, maxLon, maxLat, limit: 999999 },
       });
@@ -311,6 +308,33 @@ const OfflineAreaDownloader: React.FC<OfflineAreaDownloaderProps> = ({
       setStartCoord(null);
       setEndCoord(null);
       removeRectangleOverlay();
+
+      if ("caches" in window) {
+        try {
+          const cacheNames = await caches.keys();
+          let hasCache = false;
+
+          for (const cacheName of cacheNames) {
+            const cache = await caches.open(cacheName);
+            const keys = await cache.keys();
+            if (keys.length > 0) {
+              hasCache = true;
+              break;
+            }
+          }
+
+          if (!hasCache) {
+            console.log("No cache found, reloading to populate cache");
+            window.location.reload();
+          } else {
+            console.log("Cache exists, skipping reload");
+          }
+        } catch (error) {
+          console.error("Error checking cache:", error);
+          window.location.reload();
+        }
+      } 
+
     } catch (err) {
       console.error("Error fetching/storing offline data:", err);
       toast.dismiss();
@@ -354,8 +378,6 @@ const OfflineAreaDownloader: React.FC<OfflineAreaDownloaderProps> = ({
           )}
         </div>
       )}
-
-    
     </div>
   );
 };
