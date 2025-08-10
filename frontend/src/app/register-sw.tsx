@@ -15,7 +15,6 @@ export default function ServiceWorkerRegister() {
   const [fetchStates] = useLazyQuery(GET_STATES);
 
   useEffect(() => {
-
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw_cached_site.js");
     }
@@ -24,40 +23,51 @@ export default function ServiceWorkerRegister() {
       try {
         const db = await getDB();
 
+        // Check if data already exists
+        const existingCoastlines = await db.getAll("natural_earth_coastline");
+        const existingCountries = await db.getAll("natural_earth_country");
+        const existingStates = await db.getAll("natural_earth_states");
+
         const [coastlinesRes, countriesRes, statesRes] = await Promise.all([
-          fetchCoastlines(),
-          fetchCountries(),
-          fetchStates(),
+          existingCoastlines.length === 0
+            ? fetchCoastlines()
+            : Promise.resolve(null),
+          existingCountries.length === 0
+            ? fetchCountries()
+            : Promise.resolve(null),
+          existingStates.length === 0 ? fetchStates() : Promise.resolve(null),
         ]);
 
-
-
         const coastFC = coastlinesRes?.data?.coastlines as FeatureCollection;
-        if (coastFC?.features?.length && coastFC.bbox) {
+        if (
+          existingCoastlines.length === 0 &&
+          coastFC?.features?.length &&
+          coastFC.bbox
+        ) {
           const bboxArr = coastFC.bbox as [number, number, number, number];
           const [minLon, minLat, maxLon, maxLat] = bboxArr;
 
           const tx = db.transaction("natural_earth_coastline", "readwrite");
-          (coastFC.features as FeatureWithId[]).forEach((f) =>
-        
-            {
-              tx.store.put({
+          (coastFC.features as FeatureWithId[]).forEach((f) => {
+            tx.store.put({
               ...f,
               bbox: bboxArr,
               minLon,
               minLat,
               maxLon,
               maxLat,
-            })
-          }
-          );
+            });
+          });
           await tx.done;
           console.log(`Seeded ${coastFC.features.length} coastlines`);
         }
 
-
         const countryFC = countriesRes?.data?.countries as FeatureCollection;
-        if (countryFC?.features?.length && countryFC.bbox) {
+        if (
+          existingCountries.length === 0 &&
+          countryFC?.features?.length &&
+          countryFC.bbox
+        ) {
           const bboxArr = countryFC.bbox as [number, number, number, number];
           const [minLon, minLat, maxLon, maxLat] = bboxArr;
 
@@ -76,15 +86,13 @@ export default function ServiceWorkerRegister() {
           console.log(`Seeded ${countryFC.features.length} countries`);
         }
 
- 
-
-       
-
         const stateFC = statesRes?.data?.statesOffline as FeatureCollection;
 
-    
-        
-        if (stateFC?.features?.length && stateFC.bbox) {
+        if (
+          existingStates.length === 0 &&
+          stateFC?.features?.length &&
+          stateFC.bbox
+        ) {
           const bboxArr = stateFC.bbox as [number, number, number, number];
           const [minLon, minLat, maxLon, maxLat] = bboxArr;
 
@@ -102,8 +110,6 @@ export default function ServiceWorkerRegister() {
           await tx.done;
           console.log(`Seeded ${stateFC.features.length} states`);
         }
-
-
       } catch (err) {
         console.error("Offline seeding failed:", err);
       }
